@@ -282,7 +282,7 @@ class BasicHook(Hook):
                 output = out_mod(output)
             inputs.append(input)
             outputs.append(output)
-        gradients = torch.autograd.grad(outputs, inputs, grad_outputs=self.gradient_mapper(grad_output[0], outputs))
+        gradients = torch.autograd.grad(outputs, inputs, grad_outputs=self.gradient_mapper(grad_output[0], outputs), retain_graph=True, create_graph=True)
         # relevance = self.reducer([input.detach() for input in inputs], [gradient.detach() for gradient in gradients])
         relevance = self.reducer(inputs, gradients)
         return tuple(relevance if original.shape == relevance.shape else None for original in grad_input)

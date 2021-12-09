@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this library. If not, see <https://www.gnu.org/licenses/>.
 '''Composites, registered in a global composite dict.'''
+import fnmatch
 import torch
 
 from .core import Composite
@@ -99,6 +100,7 @@ class SpecialFirstLayerMapComposite(LayerMapComposite):
         return super().mapping(ctx, name, module)
 
 
+# TODO: Updated this to accept wildcards on 24.11.2021
 class NameMapComposite(Composite):
     '''A Composite for which hooks are specified by a mapping from module types to hooks.
 
@@ -129,7 +131,58 @@ class NameMapComposite(Composite):
         obj:`Hook` or None
             The hook found with the module type in the given name map, or None if no applicable hook was found.
         '''
-        return next((hook for names, hook in self.name_map if name in names), None)
+        for names, hook in self.name_map:
+            return next((hook for n in names if fnmatch.fnmatch(name, n)), None)
+
+class SpecialFirstNamedLayerMapComposite(NameMapComposite, LayerMapComposite):
+    '''A Composite for which hooks are specified by a mapping from module types to hooks.
+
+    Parameters
+    ----------
+    layer_map: `list[tuple[tuple[torch.nn.Module, ...], Hook]]`
+        A mapping as a list of tuples, with a tuple of applicable module types and a Hook.
+    name_map: `list[tuple[tuple[str, ...], Hook]]`
+        A mapping as a list of tuples, with a tuple of applicable module names and a Hook.
+    first_map: `list[tuple[tuple[torch.nn.Module, ...], Hook]]`
+        Applicable mapping for the first layer, same format as `layer_map`.
+    '''
+    def __init__(self, layer_map, name_map, first_map, canonizers=None):
+        self.first_map = first_map
+        NameMapComposite.__init__(self, name_map, canonizers)
+        LayerMapComposite.__init__(self, layer_map, canonizers)
+
+    # pylint: disable=unused-argument
+    def mapping(self, ctx, name, module):
+        '''Get the appropriate hook given a mapping from module names to hooks.
+
+        Parameters
+        ----------
+        ctx: dict
+            A context dictionary to keep track of previously registered hooks.
+        name: str
+            Name of the module.
+        module: obj:`torch.nn.Module`
+            Instance of the module to find a hook for.
+
+        Returns
+        -------
+        obj:`Hook` or None
+            The hook found with the module type in the given name map, or None if no applicable hook was found.
+        '''
+        # First Layer Map
+        if not ctx.get('first_layer_visited', False):
+            for types, hook in self.first_map:
+                if isinstance(module, types):
+                    ctx['first_layer_visited'] = True
+                    return hook
+
+        # Name Map
+        named_hook = NameMapComposite.mapping(self, ctx, name, module)
+        if named_hook is not None:
+            return named_hook
+
+        # Layer Map
+        return LayerMapComposite.mapping(self, ctx, name, module)
 
 
 COMPOSITES = {}

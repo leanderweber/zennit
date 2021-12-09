@@ -168,6 +168,21 @@ class Pass(Hook):
         return grad_output
 
 
+class NoRelevance(BasicHook):
+    '''The NoRelevance Rule simply returns zero relevance for all inputs.
+    Used for layers that are not supposed to pass through any relevance.
+    '''
+    def __init__(self):
+        super().__init__(
+            input_modifiers=[lambda input: input],
+            param_modifiers=[None],
+            output_modifiers=[lambda output: output],
+            gradient_mapper=(lambda out_grad, outputs: out_grad / stabilize(outputs[0])),
+            reducer=(lambda inputs, gradients: torch.zeros_like(inputs[0] * gradients[0])),
+            param_keys=[]
+        )
+
+
 class Norm(BasicHook):
     '''Normalize and weigh relevance by input contribution.
     This is essentially the same as the LRP Epsilon Rule with a fixed epsilon only used as a stabilizer, and without

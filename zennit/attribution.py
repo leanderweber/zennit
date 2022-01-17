@@ -15,7 +15,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with this library. If not, see <https://www.gnu.org/licenses/>.
-'''Attributors are convienence objects to compute an attributions, optionally using composites.'''
+'''Attributors are convenience objects to compute attributions, optionally using composites.'''
 from abc import ABCMeta, abstractmethod
 from functools import partial
 from itertools import product
@@ -42,7 +42,7 @@ def occlude_independent(input, mask, fill_fn=torch.zeros_like, invert=False):
 class Attributor(metaclass=ABCMeta):
     '''Base Attributor Class.
 
-    Attributors are convienience objects with an optional composite and when called, compute an attribution, e.g., the
+    Attributors are convenience objects with an optional composite and when called, compute an attribution, e.g., the
     gradient or anything that is the result of computing the gradient when using the provided composite.  Attributors
     also provide a context to be used in a `with` statement, similar to `CompositeContext`s. If the forward function
     (or `self.__call__`) is called and the composite has not been registered (i.e. `composite.handles` is empty), the
@@ -346,10 +346,11 @@ class Occlusion(Attributor):
         default, all values except inside the sliding window will be occluded.
     window: int or tuple of ints, optional
         The size of the sliding window to occlude over the input for each dimension. Defaults to 8. If a single integer
-        is provided, the sliding window will slide over all dimensions with the same size. If a tuple is provided, the
-        window will only slide over the n-last dimensions, where n is the length of the tuple, e.g., if the data has
-        shape `(3, 32, 32)` and `window=(8, 8)`, the resulting mask will have a block of shape `(3, 8, 8)` set to True.
-        `window` must have the same length as `stride`.
+        is provided, the sliding window will slide with the same size over all dimensions except the first, which is
+        assumed as the batch-dimension. If a tuple is provided, the window will only slide over the n-last dimensions,
+        where n is the length of the tuple, e.g., if the data has shape `(3, 32, 32)` and `window=(8, 8)`, the
+        resulting mask will have a block of shape `(3, 8, 8)` set to True. `window` must have the same length as
+        `stride`.
     stride: int or tuple of ints, optional
         The strides used for the sliding window to occlude over the input for each dimension. Defaults to 8. If a
         single integer is provided, the strides will be the same size for all dimensions. If a tuple is provided,
@@ -378,9 +379,9 @@ class Occlusion(Attributor):
         window = self.window
         stride = self.stride
         if isinstance(window, int):
-            window = tuple(min(window, size) for size in input.shape)
+            window = tuple(min(window, size) for size in input.shape[1:])
         if isinstance(stride, int):
-            window = tuple(min(stride, size) for size in input.shape)
+            stride = tuple(min(stride, size) for size in input.shape[1:])
 
         if len(window) < input.ndim:
             window = tuple(input.shape)[:input.ndim - len(window)] + window

@@ -24,9 +24,11 @@ Basic Usage
 -----------
 
 Zennit implements propagation-based attribution methods by overwriting the
-gradient of PyTorch modules in PyTorch's auto-differentiation engine. The
-following demonstrates a setup to compute Layerwise Relevance Propagation (LRP)
-relevance for a simple model and random data.
+gradient of PyTorch modules in PyTorch's auto-differentiation engine. This means
+that Zennit will only work on models which are strictly implemented using
+PyTorch modules, including activation functions. The following demonstrates a
+setup to compute Layerwise Relevance Propagation (LRP) relevance for a simple
+model and random data.
 
 .. code-block:: python
 
@@ -43,7 +45,8 @@ relevance for a simple model and random data.
     )
     input = torch.randn(1, 3, 32, 32)
 
-The most important high-level structures in Zennit are ``Composites``, ``Attributors`` and ``Canonizers``.
+The most important high-level structures in Zennit are ``Composites``,
+``Attributors`` and ``Canonizers``.
 
 
 Composites
@@ -68,7 +71,7 @@ The following computes LRP relevance using the ``EpsilonPlusFlat`` composite:
 
     # compute the output and gradient within the composite's context
     with composite.context(model) as modified_model:
-        output = model(input)
+        output = modified_model(input)
         # gradient/ relevance wrt. class/output 0
         output.backward(gradient=torch.eye(10)[[0]])
         # relevance is not accumulated in .grad if using torch.autograd.grad
@@ -80,11 +83,11 @@ The following computes LRP relevance using the ``EpsilonPlusFlat`` composite:
 
 The context created by :py:func:`zennit.core.Composite.context` registers the
 composite, which means that all rules are applied according to the composite's
-mapping. See :doc:`/how-to/use-composites-and-canonizers` for information on
+mapping. See :doc:`/how-to/use-rules-composites-and-canonizers` for information on
 using composites, :py:mod:`zennit.composites` for an API reference and
 :doc:`/how-to/write-custom-compositors` for writing new compositors. Available
-``Rules`` can be found in :py:func:`zennit.rules`, their use is described in
-:doc:`/how-to/write-custom-rules` and how to add new ones is described in
+``Rules`` can be found in :py:mod:`zennit.rules`, their use is described in
+:doc:`/how-to/use-rules-composites-and-canonizers` and how to add new ones is described in
 :doc:`/how-to/write-custom-rules`.
 
 Attributors
@@ -121,7 +124,8 @@ may be combined with propagation-based (composite) approaches.
 
     print('SmoothGrad:', relevance)
 
-More information on attributors can be found in :doc:`/how-to/use-attributors` and :doc:`/how-to/write-custom-attributors`.
+More information on attributors can be found in :doc:`/how-to/use-attributors`
+and :doc:`/how-to/write-custom-attributors`.
 
 Canonizers
 ^^^^^^^^^^
@@ -157,8 +161,11 @@ be simply supplied when instantiating a composite:
 Some pre-defined canonizers for models from ``torchvision`` can be found in
 :py:mod:`zennit.torchvision`. The :py:class:`zennit.torchvision.VGGCanonizer`
 specifically is simply :py:class:`zennit.canonizers.SequentialMergeBatchNorm`,
-which may be used when ``BatchNorm`` is used in sequential models. For more
-information on canonizers see :doc:`/how-to/use-composites-and-canonizers` and
+which may be used when ``BatchNorm`` is used in sequential models. Note that for
+``SequentialMergeBatchNorm`` to work, all functions (linear layers, activations,
+...) must be modules and assigned to their parent module in the order they are
+visited (see :py:class:`zennit.canonizers.SequentialMergeBatchNorm`). For more
+information on canonizers see :doc:`/how-to/use-rules-composites-and-canonizers` and
 :doc:`/how-to/write-custom-canonizers`.
 
 

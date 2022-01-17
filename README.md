@@ -1,16 +1,22 @@
 # Zennit
 ![Zennit-Logo](https://raw.githubusercontent.com/chr5tphr/zennit/master/share/img/zennit.png)
 
+[![Documentation Status](https://readthedocs.org/projects/zennit/badge/?version=latest)](https://zennit.readthedocs.io/en/latest/?badge=latest)
+[![PyPI Version](https://img.shields.io/pypi/v/zennit)](https://pypi.org/project/zennit/)
+[![License](https://img.shields.io/pypi/l/zennit)](https://github.com/chr5tphr/zennit/blob/master/COPYING.LESSER)
 
 Zennit (**Z**ennit **e**xplains **n**eural **n**etworks **i**n **t**orch)
 is a high-level framework in Python using PyTorch for explaining/exploring neural networks.
 Its design philosophy is intended to provide high customizability and integration as a standardized solution
 for applying LRP-based attribution methods in research.
-
+Zennit strictly requires models to use PyTorch's `torch.nn.Module` structure
+(including activation functions).
 
 Zennit is currently under development and has not yet reached a stable state.
 Interfaces may change suddenly and without warning, so please be careful when attempting to use Zennit in its current
 state.
+
+The latest documentation is hosted on Read the Docs at [zennit.readthedocs.io](https://zennit.readthedocs.io/en/latest/).
 
 If you find Zennit useful for your research, please consider citing our related [paper](https://arxiv.org/abs/2106.13200):
 ```
@@ -136,15 +142,15 @@ $ .venv/bin/python feed_forward.py \
     --cmap hot
 ```
 
-The following is a slightly modified exerpt of `share/example/feed_forward.py`:
+The following is a slightly modified excerpt of `share/example/feed_forward.py`:
 ```python
 ...
     # the maximal input shape, needed for the ZBox rule
     shape = (batch_size, 3, 224, 224)
 
     composite_kwargs = {
-        'low': norm_fn(torch.zeros(*shape, device=device)),  # the highest and ...
-        'high': norm_fn(torch.ones(*shape, device=device)),  # the lowest pixel value for ZBox
+        'low': norm_fn(torch.zeros(*shape, device=device)),  # the lowest and ...
+        'high': norm_fn(torch.ones(*shape, device=device)),  # the highest pixel value for ZBox
         'canonizers': [VGG16Canonizer()]  # the torchvision specific vgg16 canonizer
     }
 

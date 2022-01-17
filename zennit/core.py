@@ -24,19 +24,20 @@ import torch
 
 
 def stabilize(input, epsilon=1e-6):
-    '''Stabilize input for safe division.
+    '''Stabilize input for safe division. This shifts zero-elements by ``+ epsilon``. For the sake of the
+    *epsilon rule*, this also shifts positive values by ``+ epsilon`` and negative values by ``- epsilon``.
 
     Parameters
     ----------
-    input: obj:`torch.Tensor`
+    input: :py:obj:`torch.Tensor`
         Tensor to stabilize.
     epsilon: float, optional
-        Value to replace zero elements with.
+        Value by which to shift elements.
 
     Returns
     -------
-    obj:`torch.Tensor`
-        New Tensor copied from `input` with all zero elements set to epsilon.
+    :py:obj:`torch.Tensor`
+        New Tensor copied from `input` with values shifted by epsilon.
     '''
     return input + ((input == 0.).to(input) + input.sign()) * epsilon
 
@@ -56,7 +57,7 @@ def mod_params(module, modifier, param_keys=None, require_params=True):
         A list of parameters that shall be modified. If `None` (default), all parameters are modified (which may be
         none). If `[]`, no parameters are modified and `modifier` is ignored.
     require_params: bool, optional
-        Whether existance of `module`'s params is mandatory (True by default). If the attribute exists but is `None`,
+        Whether existence of `module`'s params is mandatory (True by default). If the attribute exists but is `None`,
         it is not considered missing, and the modifier is not applied.
 
     Raises
@@ -70,7 +71,7 @@ def mod_params(module, modifier, param_keys=None, require_params=True):
         The `module` with appropriate parameters temporarily modified.
     '''
     try:
-        stored_tensors = {}
+        stored_params = {}
         if param_keys is None:
             param_keys = [name for name, _ in module.named_parameters(recurse=False)]
 
@@ -82,12 +83,12 @@ def mod_params(module, modifier, param_keys=None, require_params=True):
             if key not in missing:
                 param = getattr(module, key)
                 if param is not None:
-                    stored_tensors[key] = param.data
-                    param.data = modifier(param.data, key)
+                    stored_params[key] = param
+                    setattr(module, key, torch.nn.Parameter(modifier(param.data, key)))
         yield module
     finally:
-        for key, value in stored_tensors.items():
-            getattr(module, key).data = value
+        for key, value in stored_params.items():
+            setattr(module, key, value)
 
 
 def collect_leaves(module):
@@ -228,7 +229,7 @@ class BasicHook(Hook):
         A list of parameters that shall be modified. If `None` (default), all parameters are modified (which may be
         none). If `[]`, no parameters are modified and `modifier` is ignored.
     require_params: bool, optional
-        Whether existance of `module`'s params is mandatory (True by default). If the attribute exists but is `None`,
+        Whether existence of `module`'s params is mandatory (True by default). If the attribute exists but is `None`,
         it is not considered missing, and the modifier is not applied.
     '''
     def __init__(

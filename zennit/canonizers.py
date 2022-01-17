@@ -21,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 import torch
 
 from .core import collect_leaves
-from .types import Linear, BatchNorm
+from .types import Linear, BatchNorm, ConvolutionTranspose
 
 
 class Canonizer(metaclass=ABCMeta):
@@ -134,8 +134,13 @@ class MergeBatchNorm(Canonizer):
                 )
             original_bias = module.bias.data
 
+            if isinstance(module, ConvolutionTranspose):
+                index = (None, slice(None), *((None,) * (original_weight.ndim - 2)))
+            else:
+                index = (slice(None), *((None,) * (original_weight.ndim - 1)))
+
             # merge batch_norm into linear layer
-            module.weight.data = (original_weight * scale[:, None, None, None])
+            module.weight.data = (original_weight * scale[index])
             module.bias.data = (original_bias - batch_norm.running_mean) * scale + batch_norm.bias
 
         # change batch_norm parameters to produce identity
@@ -146,7 +151,17 @@ class MergeBatchNorm(Canonizer):
 
 
 class SequentialMergeBatchNorm(MergeBatchNorm):
-    '''Canonizer to merge the parameters of all batch norms that appear sequentially right after a linear module.'''
+    '''Canonizer to merge the parameters of all batch norms that appear sequentially right after a linear module.
+
+    Note
+    ----
+    SequentialMergeBatchNorm traverses the tree of children of the provided module depth-first and in-order.
+    This means that child-modules must be assigned to their parent module in the order they are visited in the forward
+    pass to correctly identify adjacent modules.
+    This also means that activation functions must be assigned in their module-form as a child to their parent-module
+    to properly detect when there is an activation function between linear and batch-norm modules.
+
+    '''
     def apply(self, root_module):
         '''Finds a batch norm following right after a linear layer, and creates a copy of this instance to merge
         them by fusing the batch norm parameters into the linear layer and reducing the batch norm to the identity.

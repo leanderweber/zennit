@@ -226,6 +226,32 @@ class Gradient(Attributor):
         gradient, = torch.autograd.grad((output,), (input,), grad_outputs=(attr_output_fn(output.detach()),))
         return output, gradient
 
+class GradientXInput(Attributor):
+    '''Same as the Gradient Attributor, however, the resulting explanation is multiplied with the input in a last step
+    '''
+    def forward(self, input, attr_output_fn):
+        '''Compute the gradient of the model wrt. input, by using `attr_output_fn` as the function of the model output
+        to provide the vector for the vector jacobian product.
+        This function will not register the composite, and is wrapped in the `__call__` of `Attributor`.
+
+        Parameters
+        ----------
+        input: obj:`torch.Tensor`
+            Input for the model, and wrt. compute the attribution.
+        attr_output: obj:`torch.Tensor` or callable, optional
+            The output attribution function of the model's output.
+
+        Returns
+        -------
+        output: obj:`torch.Tensor`
+            Output of the model given `input`.
+        attribution: obj:`torch.Tensor`
+            Attribution of the model wrt. to `input`, with the same shape as `input`.
+        '''
+        input = input.detach().requires_grad_(True)
+        output = self.model(input)
+        gradient, = torch.autograd.grad((output,), (input,), grad_outputs=(attr_output_fn(output.detach()),))
+        return output, gradient*input
 
 class SmoothGrad(Attributor):
     '''This implements SmoothGrad [1]_. The result is the average over the gradient of multiple iterations where some

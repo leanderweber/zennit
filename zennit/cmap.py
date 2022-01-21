@@ -53,12 +53,6 @@ class ColorMap:
     source : str
         Source code to generate the color map.
 
-    Attributes
-    ----------
-    source : str
-        Source code used to generate the color map. May be overwrittten with a new string, which will be compiled to
-        change the color map.
-
     '''
     _rexp = re.compile(
         r'(?P<longcolor>[0-9a-fA-F]{6})|'
@@ -71,14 +65,19 @@ class ColorMap:
     )
 
     def __init__(self, source):
+        self._source = None
         self.source = source
 
     @property
-    def source(self):
+    def source(self) -> str:
+        '''Source code property used to generate the color map. May be overwritten with a new string, which will be
+        compiled to change the color map.
+        '''
         return self._source
 
     @source.setter
-    def source(self, value):
+    def source(self, value: str):
+        '''Set source code property and re-compile the color map.'''
         try:
             tokens = self._lex(value)
             nodes = self._parse(tokens)
@@ -125,7 +124,7 @@ class ColorMap:
                 raise RuntimeError(f'Unexpected {token}')
 
         if log and log[-1].type not in ('shortcolor', 'longcolor'):
-            raise RuntimeError(f'Unexpected {token}')
+            raise RuntimeError(f'Unexpected {log[-1]}')
 
         return nodes
 
@@ -147,8 +146,7 @@ class ColorMap:
                 if n < len(nodes) - 1:
                     log.append(node)
                     continue
-                else:
-                    node = ColorNode(255, node.value)
+                node = ColorNode(255, node.value)
             elif node.index < result[-1].index:
                 raise RuntimeError('ColorMap indices not ordered! Provided indices are required in ascending order.')
             if log:
@@ -235,7 +233,7 @@ class LazyColorMapCache:
         if name in self._compiled:
             self._compiled[name].source = value
 
-    def __delitem__(self, name, value):
+    def __delitem__(self, name):
         del self._sources[name]
         if name in self._compiled:
             del self._compiled[name]

@@ -10,37 +10,49 @@ from torch.nn import BatchNorm1d, BatchNorm2d, BatchNorm3d
 
 
 def prodict(**kwargs):
+    '''Create a dictionary with values which are the cartesian product of the input keyword arguments.'''
     return [dict(zip(kwargs, val)) for val in product(*kwargs.values())]
 
 
-@pytest.fixture(scope='session', params=[
-    0xdeadbeef,
-    0xd0c0ffee,
-    *[pytest.param(seed, marks=pytest.mark.extended) for seed in [
-        0xc001bee5, 0xc01dfee7, 0xbe577001, 0xca7b0075, 0x1057b0a7, 0x900ddeed
-    ]]
-])
+@pytest.fixture(
+    scope='session',
+    params=[
+        0xdeadbeef,
+        0xd0c0ffee,
+        *[pytest.param(seed, marks=pytest.mark.extended) for seed in [
+            0xc001bee5, 0xc01dfee7, 0xbe577001, 0xca7b0075, 0x1057b0a7, 0x900ddeed
+        ]],
+    ],
+    ids=hex
+)
 def rng(request):
+    '''Random number generator fixture.'''
     return torch.manual_seed(request.param)
 
 
-@pytest.fixture(scope='session', params=[
-    *product(
-        [Linear],
-        prodict(in_features=[16], out_features=[15], bias=[True, False]),
-    ),
-    *product(
-        [Conv1d, Conv2d, Conv3d, ConvTranspose1d, ConvTranspose2d, ConvTranspose3d],
-        prodict(in_channels=[1, 3], out_channels=[1, 3], kernel_size=[2, 3], bias=[True, False]),
-    ),
-])
+@pytest.fixture(
+    scope='session',
+    params=[
+        *product(
+            [Linear],
+            prodict(in_features=[16], out_features=[15], bias=[True, False]),
+        ),
+        *product(
+            [Conv1d, Conv2d, Conv3d, ConvTranspose1d, ConvTranspose2d, ConvTranspose3d],
+            prodict(in_channels=[1, 3], out_channels=[1, 3], kernel_size=[2, 3], bias=[True, False]),
+        ),
+    ],
+    ids=lambda param: param[0].__name__
+)
 def module_linear(rng, request):
+    '''Fixture for linear modules.'''
     module_type, kwargs = request.param
     return module_type(**kwargs).to(torch.float64).eval()
 
 
 @pytest.fixture(scope='session')
 def module_batchnorm(module_linear):
+    '''Fixture for BatchNorm-type modules, based on adjacent linear module.'''
     module_map = [
         ((Linear, Conv1d, ConvTranspose1d), BatchNorm1d),
         ((Conv2d, ConvTranspose2d), BatchNorm2d),
@@ -72,6 +84,7 @@ def module_batchnorm(module_linear):
 
 @pytest.fixture(scope='session')
 def data_input(rng, module_linear):
+    '''Fixture to create data for a linear module, given an RNG.'''
     shape = (4,)
     setups = [
         (Conv1d, 1, 1),

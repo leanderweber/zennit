@@ -18,7 +18,7 @@
 '''Rules based on Hooks'''
 import torch
 
-from .core import Hook, BasicHook, stabilize
+from .core import Hook, BasicHook, stabilize, expand
 
 
 class Epsilon(BasicHook):
@@ -78,7 +78,7 @@ class ZPlus(BasicHook):
                 lambda param, name: param.clamp(max=0) if name != 'bias' else torch.zeros_like(param),
             ],
             output_modifiers=[lambda output: output] * 2,
-            gradient_mapper=(lambda out_grad, outputs: [out_grad / stabilize(output) for output in outputs]),
+            gradient_mapper=(lambda out_grad, outputs: [out_grad / stabilize(sum(outputs))] * 2),
             reducer=(lambda inputs, gradients: inputs[0] * gradients[0] + inputs[1] * gradients[1])
         )
 
@@ -145,8 +145,8 @@ class ZBox(BasicHook):
         super().__init__(
             input_modifiers=[
                 lambda input: input,
-                lambda input: low[:input.shape[0]],
-                lambda input: high[:input.shape[0]],
+                lambda input: expand(low, input.shape, cut_batch_dim=True).to(input),
+                lambda input: expand(high, input.shape, cut_batch_dim=True).to(input),
             ],
             param_modifiers=[
                 lambda param, _: param,
@@ -217,7 +217,9 @@ class Flat(BasicHook):
     def __init__(self):
         super().__init__(
             input_modifiers=[torch.ones_like],
-            param_modifiers=[lambda param, _: torch.ones_like(param)],
+            param_modifiers=[
+                lambda param, name: torch.ones_like(param) if name != 'bias' else torch.zeros_like(param)
+            ],
             output_modifiers=[lambda output: output],
             gradient_mapper=(lambda out_grad, outputs: out_grad / stabilize(outputs[0])),
             reducer=(lambda inputs, gradients: gradients[0]),
@@ -226,12 +228,14 @@ class Flat(BasicHook):
 
 
 class ReLUDeconvNet(Hook):
+    '''Hook to modify ReLU gradient according to DeconvNet.'''
     def backward(self, module, grad_input, grad_output):
         '''Modify ReLU gradient according to DeconvNet.'''
         return (grad_output[0].clamp(min=0),)
 
 
 class ReLUGuidedBackprop(Hook):
+    '''Hook to modify ReLU gradient according to GuidedBackprop.'''
     def backward(self, module, grad_input, grad_output):
         '''Modify ReLU gradient according to GuidedBackprop.'''
         return (grad_input[0] * (grad_output[0] > 0.),)
